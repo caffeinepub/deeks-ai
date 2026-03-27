@@ -6,25 +6,51 @@ import type {
 } from "../backend";
 import { useActor } from "./useActor";
 
+const RETRYABLE_ERRORS = [
+  "actor not ready",
+  "ic0508",
+  "canister",
+  "503",
+  "502",
+];
+
+async function retryWithBackoff<T>(fn: () => Promise<T>): Promise<T> {
+  const delays = [1000, 2000, 4000, 8000, 16000];
+  let lastError: unknown;
+  for (let i = 0; i <= delays.length; i++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      lastError = err;
+      const msg = (
+        err instanceof Error ? err.message : String(err)
+      ).toLowerCase();
+      const isRetryable = RETRYABLE_ERRORS.some((e) => msg.includes(e));
+      if (!isRetryable || i === delays.length) throw err;
+      await new Promise((r) => setTimeout(r, delays[i]));
+    }
+  }
+  throw lastError;
+}
+
 async function waitForActor(
   queryClient: ReturnType<typeof useQueryClient>,
   currentActor: backendInterface | null,
 ): Promise<backendInterface> {
   if (currentActor) return currentActor;
 
-  // Check immediately if actor is already in cache
   const queries = queryClient.getQueriesData<backendInterface>({
     queryKey: ["actor"],
   });
   const cached = queries.find(([, v]) => v != null)?.[1];
   if (cached) return cached;
 
-  // Subscribe to cache changes and wait for actor to appear (max 30s)
+  // Wait up to 60s for actor to become ready
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       unsubscribe();
       reject(new Error("Actor not ready. Please try again."));
-    }, 30000);
+    }, 60000);
 
     const unsubscribe = queryClient.getQueryCache().subscribe(() => {
       const qs = queryClient.getQueriesData<backendInterface>({
@@ -70,7 +96,7 @@ export function useCreateConversation() {
   return useMutation({
     mutationFn: async (title: string) => {
       const a = await waitForActor(qc, actor);
-      return a.createConversation(title);
+      return retryWithBackoff(() => a.createConversation(title));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["conversations"] }),
   });
@@ -82,7 +108,7 @@ export function useDeleteConversation() {
   return useMutation({
     mutationFn: async (id: ConversationId) => {
       const a = await waitForActor(qc, actor);
-      return a.deleteConversation(id);
+      return retryWithBackoff(() => a.deleteConversation(id));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["conversations"] }),
   });
@@ -102,7 +128,9 @@ export function useUpdateConversation() {
       encryptedMessages: string[];
     }) => {
       const a = await waitForActor(qc, actor);
-      return a.updateConversation(id, title, encryptedMessages);
+      return retryWithBackoff(() =>
+        a.updateConversation(id, title, encryptedMessages),
+      );
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["conversation", vars.id.toString()] });
@@ -117,7 +145,7 @@ export function useSetApiKey() {
   return useMutation({
     mutationFn: async (key: string) => {
       const a = await waitForActor(qc, actor);
-      return a.setApiKey(key);
+      return retryWithBackoff(() => a.setApiKey(key));
     },
   });
 }

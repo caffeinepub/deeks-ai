@@ -7,54 +7,105 @@
 @layer base {
   :root {
     --radius: 0.625rem;
-    /* Light main panel */
+    /* Main panel — clean white */
     --background: 1 0 0;
-    --foreground: 0.145 0.02 255;
+    --foreground: 0.13 0.02 255;
     --card: 0.99 0 0;
-    --card-foreground: 0.145 0.02 255;
+    --card-foreground: 0.13 0.02 255;
     --popover: 1 0 0;
-    --popover-foreground: 0.145 0.02 255;
-    /* Blue primary */
-    --primary: 0.62 0.2 252;
+    --popover-foreground: 0.13 0.02 255;
+    /* Violet-indigo primary */
+    --primary: 0.62 0.22 280;
     --primary-foreground: 1 0 0;
     /* Secondary */
-    --secondary: 0.96 0.005 264;
-    --secondary-foreground: 0.145 0.02 255;
+    --secondary: 0.96 0.005 280;
+    --secondary-foreground: 0.13 0.02 255;
     --muted: 0.96 0.005 264;
     --muted-foreground: 0.52 0.015 264;
-    /* Purple accent */
-    --accent: 0.49 0.27 295;
+    /* Deep violet accent */
+    --accent: 0.46 0.27 295;
     --accent-foreground: 1 0 0;
     --destructive: 0.577 0.245 27.325;
     --destructive-foreground: 1 0 0;
-    --border: 0.91 0.01 255;
+    --border: 0.91 0.01 264;
     --input: 0.96 0.005 264;
-    --ring: 0.62 0.2 252;
-    --chart-1: 0.62 0.2 252;
-    --chart-2: 0.49 0.27 295;
+    --ring: 0.62 0.22 280;
+    --chart-1: 0.62 0.22 280;
+    --chart-2: 0.46 0.27 295;
     --chart-3: 0.398 0.07 227;
     --chart-4: 0.828 0.189 84;
     --chart-5: 0.769 0.188 70;
-    /* Sidebar - dark navy */
-    --sidebar: 0.19 0.035 255;
-    --sidebar-foreground: 0.9 0.01 255;
-    --sidebar-primary: 0.62 0.2 252;
+    /* Sidebar — near-black navy */
+    --sidebar: 0.12 0.025 258;
+    --sidebar-foreground: 0.92 0.01 255;
+    --sidebar-primary: 0.62 0.22 280;
     --sidebar-primary-foreground: 1 0 0;
-    --sidebar-accent: 0.25 0.04 255;
-    --sidebar-accent-foreground: 0.9 0.01 255;
-    --sidebar-border: 0.27 0.04 255;
-    --sidebar-ring: 0.62 0.2 252;
-    /* Custom */
-    --gradient-from: oklch(0.62 0.2 252);
-    --gradient-to: oklch(0.49 0.27 295);
+    --sidebar-accent: 0.18 0.03 258;
+    --sidebar-accent-foreground: 0.92 0.01 255;
+    --sidebar-border: 0.2 0.03 258;
+    --sidebar-ring: 0.62 0.22 280;
+    /* Gradients */
+    --gradient-from: oklch(0.62 0.22 280);
+    --gradient-to: oklch(0.46 0.27 295);
+  }
+
+  /* ── Dark mode tokens ── */
+  .dark {
+    /* Main panel — near-black */
+    --background: 0.11 0.012 258;
+    --foreground: 0.92 0.008 258;
+    --card: 0.15 0.015 258;
+    --card-foreground: 0.92 0.008 258;
+    --popover: 0.14 0.015 258;
+    --popover-foreground: 0.92 0.008 258;
+    /* Same violet-indigo primary — slightly brighter for dark */
+    --primary: 0.68 0.22 280;
+    --primary-foreground: 1 0 0;
+    /* Secondary / muted */
+    --secondary: 0.18 0.02 258;
+    --secondary-foreground: 0.88 0.008 258;
+    --muted: 0.18 0.018 258;
+    --muted-foreground: 0.55 0.015 258;
+    /* Accent stays vivid */
+    --accent: 0.52 0.26 295;
+    --accent-foreground: 1 0 0;
+    --destructive: 0.6 0.22 25;
+    --destructive-foreground: 1 0 0;
+    --border: 0.22 0.02 258;
+    --input: 0.18 0.018 258;
+    --ring: 0.68 0.22 280;
+    --chart-1: 0.68 0.22 280;
+    --chart-2: 0.52 0.26 295;
+    --chart-3: 0.5 0.1 227;
+    --chart-4: 0.75 0.15 84;
+    --chart-5: 0.7 0.15 70;
+    /* Sidebar — slightly lighter than bg for subtle depth */
+    --sidebar: 0.13 0.022 258;
+    --sidebar-foreground: 0.92 0.01 255;
+    --sidebar-primary: 0.68 0.22 280;
+    --sidebar-primary-foreground: 1 0 0;
+    --sidebar-accent: 0.19 0.025 258;
+    --sidebar-accent-foreground: 0.92 0.01 255;
+    --sidebar-border: 0.21 0.022 258;
+    --sidebar-ring: 0.68 0.22 280;
   }
 
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
+
+  html {
+    overflow-x: hidden;
+    min-width: 160px;
+  }
+
   body {
     @apply bg-background text-foreground font-sans;
     font-family: "Plus Jakarta Sans", sans-serif;
+    overflow-x: hidden;
+    min-width: 160px;
+    word-break: break-word;
   }
 }
 
@@ -76,9 +127,16 @@
       var(--gradient-to)
     );
   }
+  .login-bg {
+    background: radial-gradient(
+        ellipse 80% 50% at 50% -10%,
+        oklch(0.28 0.1 280 / 0.5) 0%,
+        transparent 70%
+      ), oklch(0.09 0.02 258);
+  }
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.27 0.04 255) transparent;
+    scrollbar-color: oklch(0.25 0.03 258) transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
     width: 4px;
@@ -87,7 +145,7 @@
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: oklch(0.27 0.04 255);
+    background-color: oklch(0.25 0.03 258);
     border-radius: 2px;
   }
 }
