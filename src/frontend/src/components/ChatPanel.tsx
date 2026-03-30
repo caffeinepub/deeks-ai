@@ -1,6 +1,5 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
@@ -9,6 +8,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  Check,
+  Copy,
+  Download,
   FileText,
   Lock,
   Menu,
@@ -16,6 +18,7 @@ import {
   MicOff,
   Moon,
   Plus,
+  RefreshCw,
   Send,
   Sparkles,
   Square,
@@ -30,7 +33,70 @@ import type { useSpeech } from "../hooks/useSpeech";
 import { useTheme } from "../hooks/useTheme";
 import type { FileAttachment, LocalMessage } from "../pages/ChatPage";
 
-// Minimal markdown renderer (no external deps)
+// ── Syntax highlighting ──────────────────────────────────────────────────────
+function highlightCode(code: string, _lang: string): React.ReactNode[] {
+  const KEYWORDS =
+    /\b(if|else|for|while|return|function|const|let|var|class|import|export|from|default|new|this|typeof|instanceof|try|catch|finally|throw|async|await|def|print|self|lambda|yield|pass|break|continue|in|of|is|not|and|or|True|False|None|null|undefined|true|false)\b/g;
+  const STRING = /(["'`])((?:\\.|(?!\1)[\s\S])*?)\1/g;
+  const COMMENT_LINE = /(\/\/[^\n]*|#[^\n]*)/g;
+  const COMMENT_BLOCK = /(\/\*[\s\S]*?\*\/)/g;
+  const NUMBER = /\b(\d+\.?\d*|\.\d+)\b/g;
+
+  type Chunk = { start: number; end: number; type: string; text: string };
+  const chunks: Chunk[] = [];
+
+  const addMatches = (re: RegExp, type: string) => {
+    re.lastIndex = 0;
+    for (const m of code.matchAll(re)) {
+      chunks.push({
+        start: m.index ?? 0,
+        end: (m.index ?? 0) + m[0].length,
+        type,
+        text: m[0],
+      });
+    }
+  };
+
+  addMatches(COMMENT_BLOCK, "comment");
+  addMatches(COMMENT_LINE, "comment");
+  addMatches(STRING, "string");
+  addMatches(NUMBER, "number");
+  addMatches(KEYWORDS, "keyword");
+
+  // Sort & deduplicate by start position, keeping first (higher-priority) type
+  chunks.sort((a, b) => a.start - b.start);
+
+  const merged: Chunk[] = [];
+  for (const c of chunks) {
+    if (merged.length > 0 && c.start < merged[merged.length - 1].end) continue;
+    merged.push(c);
+  }
+
+  const colorMap: Record<string, string> = {
+    keyword: "text-blue-400",
+    string: "text-green-400",
+    comment: "text-muted-foreground/60",
+    number: "text-orange-400",
+  };
+
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  for (const chunk of merged) {
+    if (chunk.start > cursor) {
+      nodes.push(code.slice(cursor, chunk.start));
+    }
+    nodes.push(
+      <span key={chunk.start} className={colorMap[chunk.type]}>
+        {chunk.text}
+      </span>,
+    );
+    cursor = chunk.end;
+  }
+  if (cursor < code.length) nodes.push(code.slice(cursor));
+  return nodes;
+}
+
+// ── Markdown renderer ─────────────────────────────────────────────────────────
 function MarkdownContent({ content }: { content: string }) {
   const lines = content.split("\n");
   const elements: React.ReactNode[] = [];
@@ -89,6 +155,7 @@ function MarkdownContent({ content }: { content: string }) {
         codeLines.push(lines[i]);
         i++;
       }
+      const codeText = codeLines.join("\n");
       elements.push(
         <pre
           key={i}
@@ -98,7 +165,7 @@ function MarkdownContent({ content }: { content: string }) {
             className="text-xs font-mono whitespace-pre-wrap break-all text-foreground"
             data-lang={lang}
           >
-            {codeLines.join("\n")}
+            {highlightCode(codeText, lang)}
           </code>
         </pre>,
       );
@@ -224,7 +291,7 @@ function MarkdownContent({ content }: { content: string }) {
   );
 }
 
-// Waveform animation bars for speaking state
+// ── Waveform bars ─────────────────────────────────────────────────────────────
 function WaveformBars() {
   return (
     <div className="flex items-center gap-0.5 h-5">
@@ -247,6 +314,42 @@ function WaveformBars() {
   );
 }
 
+// ── Typing indicator ──────────────────────────────────────────────────────────
+function TypingIndicator() {
+  return (
+    <div
+      className="flex gap-1.5 sm:gap-3 justify-start min-w-0"
+      data-ocid="chat.loading_state"
+    >
+      <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
+        <AvatarFallback className="gradient-bg text-white text-[10px] sm:text-xs font-bold">
+          D
+        </AvatarFallback>
+      </Avatar>
+      <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              className="w-2 h-2 rounded-full bg-primary/60"
+              animate={{ y: [0, -6, 0] }}
+              transition={{
+                duration: 0.6,
+                repeat: Number.POSITIVE_INFINITY,
+                delay: i * 0.15,
+                ease: "easeInOut",
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-[10px] text-muted-foreground/60">
+          Dr. Deeks is typing...
+        </span>
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   messages: LocalMessage[];
   isLoading: boolean;
@@ -258,6 +361,7 @@ interface Props {
   onToggleSidebar: () => void;
   sidebarOpen: boolean;
   onSpeakMessage: (text: string) => void;
+  onRegenerate: () => void;
 }
 
 export default function ChatPanel({
@@ -270,6 +374,7 @@ export default function ChatPanel({
   conversationTitle,
   onToggleSidebar,
   onSpeakMessage,
+  onRegenerate,
 }: Props) {
   const [input, setInput] = useState("");
   const [attachment, setAttachment] = useState<FileAttachment | null>(null);
@@ -280,11 +385,44 @@ export default function ChatPanel({
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const { isDark, toggleTheme } = useTheme();
+  // Per-message copy state: msgId -> true if recently copied
+  const [copiedIds, setCopiedIds] = useState<Record<string, boolean>>({});
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  const handleCopy = (msgId: string, content: string) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedIds((prev) => ({ ...prev, [msgId]: true }));
+      setTimeout(() => {
+        setCopiedIds((prev) => ({ ...prev, [msgId]: false }));
+      }, 2000);
+    });
+  };
+
+  const handleExportChat = () => {
+    if (messages.length === 0) return;
+    const date = new Date().toLocaleString();
+    const lines = [
+      "Deeks AI - Chat Export",
+      `Date: ${date}`,
+      "",
+      ...messages.map((m) => {
+        const ts = new Date(m.timestamp).toLocaleTimeString();
+        const role = m.role === "user" ? "You" : "Dr. Deeks";
+        return `[${ts}] ${role}: ${m.content}`;
+      }),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `deeks-ai-chat-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -373,6 +511,12 @@ export default function ChatPanel({
       ? "listening"
       : "ready";
 
+  // Index of last assistant message
+  const lastAiMsgIdx = messages.reduce(
+    (acc, msg, idx) => (msg.role === "assistant" ? idx : acc),
+    -1,
+  );
+
   return (
     <div className="flex flex-col flex-1 h-full bg-background min-w-0 overflow-hidden">
       {/* Top bar */}
@@ -408,7 +552,27 @@ export default function ChatPanel({
 
         {/* Controls */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Voice toggle — visible on all sizes */}
+          {/* Export chat button */}
+          {messages.length > 0 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleExportChat}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    data-ocid="chat.secondary_button"
+                    aria-label="Export chat"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Export chat as .txt</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          {/* Voice toggle */}
           {speech.isSupported && (
             <TooltipProvider>
               <Tooltip>
@@ -567,15 +731,48 @@ export default function ChatPanel({
                     {msg.content}
                   </p>
                 )}
+
+                {/* Assistant message action buttons */}
                 {msg.role === "assistant" && (
-                  <button
-                    type="button"
-                    onClick={() => onSpeakMessage(msg.content)}
-                    className="absolute -bottom-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-card border border-border rounded-full p-1 shadow-xs"
-                    data-ocid={`messages.toggle.${i + 1}`}
-                  >
-                    <Volume2 className="w-3 h-3 text-muted-foreground" />
-                  </button>
+                  <div className="absolute -bottom-2 -right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Copy button */}
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(msg.id, msg.content)}
+                      className="bg-card border border-border rounded-full p-1 shadow-xs hover:bg-muted transition-colors"
+                      data-ocid={`messages.toggle.${i + 1}`}
+                      aria-label="Copy message"
+                    >
+                      {copiedIds[msg.id] ? (
+                        <Check className="w-3 h-3 text-green-500" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-muted-foreground" />
+                      )}
+                    </button>
+
+                    {/* Speak button */}
+                    <button
+                      type="button"
+                      onClick={() => onSpeakMessage(msg.content)}
+                      className="bg-card border border-border rounded-full p-1 shadow-xs hover:bg-muted transition-colors"
+                      aria-label="Read aloud"
+                    >
+                      <Volume2 className="w-3 h-3 text-muted-foreground" />
+                    </button>
+
+                    {/* Regenerate button (last assistant message only) */}
+                    {i === lastAiMsgIdx && !isLoading && (
+                      <button
+                        type="button"
+                        onClick={onRegenerate}
+                        className="bg-card border border-border rounded-full p-1 shadow-xs hover:bg-muted transition-colors"
+                        data-ocid="chat.secondary_button"
+                        aria-label="Regenerate response"
+                      >
+                        <RefreshCw className="w-3 h-3 text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
               {msg.role === "user" && (
@@ -589,22 +786,7 @@ export default function ChatPanel({
           ))}
         </AnimatePresence>
 
-        {isLoading && (
-          <div
-            className="flex gap-1.5 sm:gap-3 justify-start min-w-0"
-            data-ocid="chat.loading_state"
-          >
-            <Avatar className="w-6 h-6 sm:w-8 sm:h-8 flex-shrink-0">
-              <AvatarFallback className="gradient-bg text-white text-[10px] sm:text-xs font-bold">
-                D
-              </AvatarFallback>
-            </Avatar>
-            <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-3 py-3 space-y-2 w-32 sm:w-48">
-              <Skeleton className="h-2.5 sm:h-3 w-full rounded" />
-              <Skeleton className="h-2.5 sm:h-3 w-3/4 rounded" />
-            </div>
-          </div>
-        )}
+        {isLoading && <TypingIndicator />}
         <div ref={bottomRef} />
       </div>
 
