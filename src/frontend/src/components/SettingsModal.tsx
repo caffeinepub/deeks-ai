@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  Globe,
   Key,
   Lock,
   Trash2,
@@ -51,8 +52,17 @@ export default function SettingsModal({
     () => localStorage.getItem("aura_groq_key") || "",
   );
   const [showKey, setShowKey] = useState(false);
+  const [tavilyKey, setTavilyKey] = useState(
+    () => localStorage.getItem("deeks_tavily_key") || "",
+  );
+  const [showTavilyKey, setShowTavilyKey] = useState(false);
   const [importKeyValue, setImportKeyValue] = useState("");
   const setApiKeyMutation = useSetApiKey();
+
+  const handleSaveTavilyKey = () => {
+    localStorage.setItem("deeks_tavily_key", tavilyKey);
+    toast.success("Tavily API key saved");
+  };
 
   const handleSaveApiKey = async () => {
     localStorage.setItem("aura_groq_key", apiKey);
@@ -153,6 +163,61 @@ export default function SettingsModal({
               >
                 <ExternalLink className="w-3 h-3" />
                 console.groq.com
+              </a>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Globe className="w-3.5 h-3.5" />
+              Tavily API Key (Web Search)
+            </Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type={showTavilyKey ? "text" : "password"}
+                  value={tavilyKey}
+                  onChange={(e) => setTavilyKey(e.target.value)}
+                  placeholder="tvly-..."
+                  className="pr-10"
+                  data-ocid="settings.input"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTavilyKey((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showTavilyKey ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              <Button
+                type="button"
+                onClick={handleSaveTavilyKey}
+                size="sm"
+                data-ocid="settings.save_button"
+              >
+                Save
+              </Button>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+              <p className="text-xs text-muted-foreground">
+                Free key milegi yahan se — 1000 free searches/month, no credit
+                card:
+              </p>
+              <a
+                href="https://app.tavily.com"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-primary flex items-center gap-1 hover:underline"
+              >
+                <ExternalLink className="w-3 h-3" />
+                app.tavily.com
               </a>
             </div>
           </div>

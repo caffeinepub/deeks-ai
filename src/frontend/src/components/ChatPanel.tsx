@@ -11,7 +11,9 @@ import {
   Check,
   Copy,
   Download,
+  ExternalLink,
   FileText,
+  Globe,
   Lock,
   Menu,
   Mic,
@@ -315,7 +317,7 @@ function WaveformBars() {
 }
 
 // ── Typing indicator ──────────────────────────────────────────────────────────
-function TypingIndicator() {
+function TypingIndicator({ webSearch = false }: { webSearch?: boolean }) {
   return (
     <div
       className="flex gap-1.5 sm:gap-3 justify-start min-w-0"
@@ -343,7 +345,7 @@ function TypingIndicator() {
           ))}
         </div>
         <span className="text-[10px] text-muted-foreground/60">
-          Dr. Deeks is typing...
+          {webSearch ? "Searching web..." : "Dr. Deeks is typing..."}
         </span>
       </div>
     </div>
@@ -362,6 +364,8 @@ interface Props {
   sidebarOpen: boolean;
   onSpeakMessage: (text: string) => void;
   onRegenerate: () => void;
+  webSearchEnabled: boolean;
+  onToggleWebSearch: () => void;
 }
 
 export default function ChatPanel({
@@ -375,6 +379,8 @@ export default function ChatPanel({
   onToggleSidebar,
   onSpeakMessage,
   onRegenerate,
+  webSearchEnabled,
+  onToggleWebSearch,
 }: Props) {
   const [input, setInput] = useState("");
   const [attachment, setAttachment] = useState<FileAttachment | null>(null);
@@ -725,7 +731,51 @@ export default function ChatPanel({
                   </div>
                 )}
                 {msg.role === "assistant" ? (
-                  <MarkdownContent content={msg.content} />
+                  <>
+                    {msg.imageUrl && (
+                      <div className="mb-2">
+                        <img
+                          src={msg.imageUrl}
+                          alt="AI generated artwork"
+                          className="max-w-full rounded-xl border border-border shadow-sm"
+                          style={{ maxHeight: 480 }}
+                        />
+                        <div className="mt-1.5 flex gap-2">
+                          <a
+                            href={msg.imageUrl}
+                            download="deeks-ai-image.png"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                          >
+                            <ExternalLink className="w-2.5 h-2.5" />
+                            Download
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    <MarkdownContent content={msg.content} />
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border/50 flex flex-wrap gap-1.5">
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          Sources:
+                        </span>
+                        {msg.sources.map((src) => (
+                          <a
+                            key={src.url}
+                            href={src.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-0.5 text-[10px] text-primary hover:underline"
+                          >
+                            <ExternalLink className="w-2.5 h-2.5" />
+                            {src.title.slice(0, 40)}
+                            {src.title.length > 40 ? "…" : ""}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed break-words">
                     {msg.content}
@@ -786,7 +836,7 @@ export default function ChatPanel({
           ))}
         </AnimatePresence>
 
-        {isLoading && <TypingIndicator />}
+        {isLoading && <TypingIndicator webSearch={webSearchEnabled} />}
         <div ref={bottomRef} />
       </div>
 
@@ -1020,6 +1070,30 @@ export default function ChatPanel({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>Attach image or file</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Web search toggle */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={onToggleWebSearch}
+                        className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
+                          webSearchEnabled
+                            ? "text-primary bg-primary/10 hover:bg-primary/20"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        }`}
+                        data-ocid="chat.toggle"
+                        aria-label="Toggle web search"
+                      >
+                        <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Web Search {webSearchEnabled ? "(ON)" : "(OFF)"}
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
 
