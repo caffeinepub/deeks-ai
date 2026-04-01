@@ -20,6 +20,7 @@ import {
   MicOff,
   Moon,
   Plus,
+  Radio,
   RefreshCw,
   Send,
   Sparkles,
@@ -366,6 +367,7 @@ interface Props {
   onRegenerate: () => void;
   webSearchEnabled: boolean;
   onToggleWebSearch: () => void;
+  onLiveConversation: () => void;
 }
 
 export default function ChatPanel({
@@ -381,6 +383,7 @@ export default function ChatPanel({
   onRegenerate,
   webSearchEnabled,
   onToggleWebSearch,
+  onLiveConversation,
 }: Props) {
   const [input, setInput] = useState("");
   const [attachment, setAttachment] = useState<FileAttachment | null>(null);
@@ -606,6 +609,25 @@ export default function ChatPanel({
               </Tooltip>
             </TooltipProvider>
           )}
+
+          {/* Live Conversation button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={onLiveConversation}
+                  className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted relative"
+                  data-ocid="live.conversation"
+                  aria-label="Live conversation"
+                >
+                  <Radio className="w-4 h-4" />
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Live Conversation (like Gemini)</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {/* Theme toggle */}
           <TooltipProvider>
