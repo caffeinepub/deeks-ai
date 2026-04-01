@@ -29,6 +29,7 @@ interface Props {
   onDelete: (id: ConversationId) => void;
   onSettings: () => void;
   onBack: () => void;
+  onCricket?: () => void;
   onClose?: () => void;
   isMobile?: boolean;
 }
@@ -60,6 +61,7 @@ export default function Sidebar({
   onDelete,
   onSettings,
   onBack,
+  onCricket,
   onClose,
   isMobile,
 }: Props) {
@@ -218,6 +220,23 @@ export default function Sidebar({
               <TooltipContent side="right">Settings</TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          {onCricket && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onCricket}
+                    className="p-2 rounded-xl text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all flex-shrink-0"
+                    aria-label="Cricket Scores"
+                  >
+                    <span className="text-sm">🏏</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Cricket Live</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
 
           <TooltipProvider>
             <Tooltip>

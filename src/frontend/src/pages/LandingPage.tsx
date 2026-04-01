@@ -13,6 +13,7 @@ import { motion } from "motion/react";
 
 interface Props {
   onStart: () => void;
+  onCricket?: () => void;
 }
 
 const features = [
@@ -42,7 +43,7 @@ const stats = [
   { value: "Free", label: "To use" },
 ];
 
-export default function LandingPage({ onStart }: Props) {
+export default function LandingPage({ onStart, onCricket }: Props) {
   return (
     <div className="min-h-screen bg-white flex flex-col overflow-x-hidden">
       {/* Nav */}
@@ -55,15 +56,28 @@ export default function LandingPage({ onStart }: Props) {
             Deeks AI
           </span>
         </div>
-        <Button
-          onClick={onStart}
-          size="sm"
-          className="gradient-bg text-white border-0 hover:opacity-90 transition-opacity gap-1 font-medium flex-shrink-0 text-xs sm:text-sm px-3 sm:px-4 h-8 sm:h-9"
-          data-ocid="nav.primary_button"
-        >
-          <span className="hidden xs:inline sm:inline">Get Started</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {onCricket && (
+            <Button
+              onClick={onCricket}
+              size="sm"
+              variant="outline"
+              className="gap-1 font-medium flex-shrink-0 text-xs sm:text-sm px-3 sm:px-4 h-8 sm:h-9"
+            >
+              <span>🏏</span>
+              <span className="hidden sm:inline">Cricket Live</span>
+            </Button>
+          )}
+          <Button
+            onClick={onStart}
+            size="sm"
+            className="gradient-bg text-white border-0 hover:opacity-90 transition-opacity gap-1 font-medium flex-shrink-0 text-xs sm:text-sm px-3 sm:px-4 h-8 sm:h-9"
+            data-ocid="nav.primary_button"
+          >
+            <span className="hidden xs:inline sm:inline">Get Started</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Button>
+        </div>
       </nav>
 
       {/* Hero */}
