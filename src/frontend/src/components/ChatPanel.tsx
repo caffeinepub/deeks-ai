@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  ArrowLeft,
   Check,
   Copy,
   Download,
@@ -368,6 +369,7 @@ interface Props {
   webSearchEnabled: boolean;
   onToggleWebSearch: () => void;
   onLiveConversation: () => void;
+  onBack: () => void;
 }
 
 export default function ChatPanel({
@@ -384,6 +386,7 @@ export default function ChatPanel({
   webSearchEnabled,
   onToggleWebSearch,
   onLiveConversation,
+  onBack,
 }: Props) {
   const [input, setInput] = useState("");
   const [attachment, setAttachment] = useState<FileAttachment | null>(null);
@@ -539,6 +542,15 @@ export default function ChatPanel({
         >
           <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 p-1.5 rounded-lg hover:bg-muted"
+          aria-label="Go back to home"
+          data-ocid="chat.back_button"
+        >
+          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+        </button>
 
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="w-7 h-7 rounded-xl gradient-bg flex items-center justify-center flex-shrink-0">
@@ -604,7 +616,9 @@ export default function ChatPanel({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {voiceMode ? "Voice mode on" : "Voice mode off"}
+                  {voiceMode
+                    ? "Voice output ON (click to mute)"
+                    : "Voice output OFF (click to unmute)"}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

@@ -54,7 +54,17 @@ function pickVoice(
     if (hi) return { voice: hi, lang: "hi-IN" };
     return { voice: voices[selectedIndex] ?? null, lang: "hi-IN" };
   }
-  return { voice: voices[selectedIndex] ?? null, lang: "en-US" };
+  // Prefer natural/premium English voices
+  const preferred =
+    (voices.find(
+      (v) =>
+        v.lang === "en-US" && /google|premium|enhanced|natural/i.test(v.name),
+    ) ||
+      voices.find((v) => v.lang === "en-US" && v.name.includes("Female")) ||
+      voices.find((v) => v.lang === "en-US") ||
+      voices[selectedIndex]) ??
+    null;
+  return { voice: preferred ?? null, lang: "en-US" };
 }
 
 export function useSpeech() {
@@ -66,7 +76,7 @@ export function useSpeech() {
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceIndex, setSelectedVoiceIndex] = useState(0);
-  const [speechRate, setSpeechRate] = useState(1.0);
+  const [speechRate, setSpeechRate] = useState(0.95);
 
   useEffect(() => {
     const SpeechRecognitionAPI =
