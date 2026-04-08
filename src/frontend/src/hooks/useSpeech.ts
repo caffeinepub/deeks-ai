@@ -22,9 +22,7 @@ const PUNJABI_WORDS =
 type LangDetection = "en" | "hi" | "pa";
 
 function detectLang(text: string): LangDetection {
-  // Gurmukhi script = Punjabi
   if (/[\u0A00-\u0A7F]/.test(text)) return "pa";
-  // Devanagari script = Hindi
   if (/[\u0900-\u097F]/.test(text)) return "hi";
 
   const words = text.split(/\s+/);
@@ -39,32 +37,40 @@ function detectLang(text: string): LangDetection {
 function pickVoice(
   voices: SpeechSynthesisVoice[],
   lang: LangDetection,
-  selectedIndex: number,
 ): { voice: SpeechSynthesisVoice | null; lang: string } {
   if (lang === "pa") {
     const pa = voices.find((v) => v.lang.startsWith("pa"));
     if (pa) return { voice: pa, lang: "pa-IN" };
-    // Fallback to hi-IN which sounds closer to Punjabi than English
     const hi = voices.find((v) => v.lang.startsWith("hi"));
     if (hi) return { voice: hi, lang: "hi-IN" };
-    return { voice: voices[selectedIndex] ?? null, lang: "hi-IN" };
   }
   if (lang === "hi") {
     const hi = voices.find((v) => v.lang.startsWith("hi"));
     if (hi) return { voice: hi, lang: "hi-IN" };
-    return { voice: voices[selectedIndex] ?? null, lang: "hi-IN" };
   }
-  // Prefer natural/premium English voices
+  // English: prefer premium/natural voices
   const preferred =
-    (voices.find(
+    voices.find(
       (v) =>
         v.lang === "en-US" && /google|premium|enhanced|natural/i.test(v.name),
     ) ||
-      voices.find((v) => v.lang === "en-US" && v.name.includes("Female")) ||
-      voices.find((v) => v.lang === "en-US") ||
-      voices[selectedIndex]) ??
+    voices.find((v) => v.lang === "en-US" && /female/i.test(v.name)) ||
+    voices.find((v) => v.lang === "en-US") ||
+    voices.find((v) => v.lang.startsWith("en")) ||
+    voices[0] ||
     null;
-  return { voice: preferred ?? null, lang: "en-US" };
+  return { voice: preferred, lang: "en-US" };
+}
+
+// Chrome has a bug where speechSynthesis pauses after ~15s
+// Workaround: resume() it periodically while speaking
+function chromeSynthFix(synth: SpeechSynthesis): () => void {
+  const id = setInterval(() => {
+    if (synth.speaking && synth.paused) {
+      synth.resume();
+    }
+  }, 5000);
+  return () => clearInterval(id);
 }
 
 export function useSpeech() {
@@ -77,6 +83,7 @@ export function useSpeech() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceIndex, setSelectedVoiceIndex] = useState(0);
   const [speechRate, setSpeechRate] = useState(0.95);
+  const chromeFocusRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const SpeechRecognitionAPI =
@@ -85,12 +92,24 @@ export function useSpeech() {
     if (SpeechRecognitionAPI && window.speechSynthesis) {
       setIsSupported(true);
       synthRef.current = window.speechSynthesis;
+
       const loadVoices = () => {
         const v = window.speechSynthesis.getVoices();
         if (v.length > 0) setVoices(v);
       };
+
       loadVoices();
       window.speechSynthesis.onvoiceschanged = loadVoices;
+
+      // Some browsers only fire onvoiceschanged once — poll as fallback
+      const pollId = setInterval(() => {
+        const v = window.speechSynthesis.getVoices();
+        if (v.length > 0) {
+          setVoices(v);
+          clearInterval(pollId);
+        }
+      }, 200);
+      setTimeout(() => clearInterval(pollId), 5000);
     }
   }, []);
 
@@ -128,37 +147,85 @@ export function useSpeech() {
 
   const speak = useCallback(
     (text: string, onEnd?: () => void) => {
-      if (!synthRef.current) return;
-      synthRef.current.cancel();
+      const synth = synthRef.current;
+      if (!synth) return;
 
-      const detectedLang = detectLang(text);
-      const { voice, lang } = pickVoice(
-        voices,
-        detectedLang,
-        selectedVoiceIndex,
-      );
+      // Cancel any ongoing speech
+      synth.cancel();
+      if (chromeFocusRef.current) {
+        chromeFocusRef.current();
+        chromeFocusRef.current = null;
+      }
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (voice) utterance.voice = voice;
-      utterance.lang = lang;
-      utterance.rate = speechRate;
-      // Slightly warmer pitch for Hindi/Punjabi
-      utterance.pitch = detectedLang !== "en" ? 1.1 : 1.0;
+      const doSpeak = (availableVoices: SpeechSynthesisVoice[]) => {
+        const detectedLang = detectLang(text);
+        const { voice, lang } = pickVoice(availableVoices, detectedLang);
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        onEnd?.();
+        const utterance = new SpeechSynthesisUtterance(text);
+        if (voice) utterance.voice = voice;
+        utterance.lang = lang;
+        utterance.rate = speechRate;
+        utterance.pitch = detectedLang !== "en" ? 1.05 : 1.0;
+
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+          chromeFocusRef.current = chromeSynthFix(synth);
+        };
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          if (chromeFocusRef.current) {
+            chromeFocusRef.current();
+            chromeFocusRef.current = null;
+          }
+          onEnd?.();
+        };
+        utterance.onerror = (e) => {
+          // 'interrupted' is expected when cancel() is called -- not an error
+          if ((e as any).error !== "interrupted") {
+            setIsSpeaking(false);
+          }
+          if (chromeFocusRef.current) {
+            chromeFocusRef.current();
+            chromeFocusRef.current = null;
+          }
+          onEnd?.();
+        };
+
+        synth.speak(utterance);
       };
-      utterance.onerror = () => setIsSpeaking(false);
-      synthRef.current.speak(utterance);
+
+      // If voices already loaded, speak immediately
+      const currentVoices = synth.getVoices();
+      if (currentVoices.length > 0) {
+        doSpeak(currentVoices);
+        return;
+      }
+
+      // Voices not loaded yet -- wait for them
+      const onVoicesChanged = () => {
+        synth.onvoiceschanged = null;
+        doSpeak(synth.getVoices());
+      };
+      synth.onvoiceschanged = onVoicesChanged;
+
+      // Fallback: speak after 800ms even if onvoiceschanged never fires
+      setTimeout(() => {
+        if (synth.onvoiceschanged === onVoicesChanged) {
+          synth.onvoiceschanged = null;
+          doSpeak(synth.getVoices());
+        }
+      }, 800);
     },
-    [voices, selectedVoiceIndex, speechRate],
+    [speechRate],
   );
 
   const cancelSpeech = useCallback(() => {
     synthRef.current?.cancel();
     setIsSpeaking(false);
+    if (chromeFocusRef.current) {
+      chromeFocusRef.current();
+      chromeFocusRef.current = null;
+    }
   }, []);
 
   return {

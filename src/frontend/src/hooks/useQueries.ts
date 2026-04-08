@@ -14,19 +14,24 @@ const RETRYABLE_ERRORS = [
   "502",
 ];
 
-async function retryWithBackoff<T>(fn: () => Promise<T>): Promise<T> {
-  const delays = [1000, 2000, 4000, 8000, 16000];
+export function isRetryableError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return RETRYABLE_ERRORS.some((e) => msg.includes(e));
+}
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  onRetry?: (attempt: number, maxAttempts: number) => void,
+): Promise<T> {
+  const delays = [1500, 3000, 5000, 8000, 12000];
   let lastError: unknown;
   for (let i = 0; i <= delays.length; i++) {
     try {
       return await fn();
     } catch (err: unknown) {
       lastError = err;
-      const msg = (
-        err instanceof Error ? err.message : String(err)
-      ).toLowerCase();
-      const isRetryable = RETRYABLE_ERRORS.some((e) => msg.includes(e));
-      if (!isRetryable || i === delays.length) throw err;
+      if (!isRetryableError(err) || i === delays.length) throw err;
+      if (onRetry) onRetry(i + 1, delays.length);
       await new Promise((r) => setTimeout(r, delays[i]));
     }
   }
@@ -94,9 +99,15 @@ export function useCreateConversation() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (title: string) => {
+    mutationFn: async ({
+      title,
+      onRetry,
+    }: {
+      title: string;
+      onRetry?: (attempt: number, max: number) => void;
+    }) => {
       const a = await waitForActor(qc, actor);
-      return retryWithBackoff(() => a.createConversation(title));
+      return retryWithBackoff(() => a.createConversation(title), onRetry);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["conversations"] }),
   });
